@@ -833,4 +833,132 @@ export default function App() {
                         className="speak-button"
                         onClick={() => speak(m.content)}
                         title="Ouvir resposta completa"
-                     
+                      >
+                        🔊 Ouvir resposta completa
+                      </button>
+
+                      <div className="sentence-list">
+                        {splitSentences(m.content).map(
+                          (sentence, sentenceIndex) => (
+                            <div
+                              className="sentence-item"
+                              key={sentenceIndex}
+                            >
+                              <div className="sentence-text">
+                                {sentence}
+                              </div>
+
+                              <button
+                                className="sentence-play"
+                                onClick={() => speak(sentence)}
+                                title="Ouvir somente esta frase"
+                                aria-label={`Ouvir frase ${sentenceIndex + 1}`}
+                              >
+                                🔊
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </>
+                  )}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="message-row">
+              <div className="avatar">🎓</div>
+              <div className="bubble">
+                Professor is thinking...
+                <div className="typing">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="composer-area">
+
+          <div className="speed-control">
+            <span className="speed-label">
+              🔊 Velocidade da voz
+            </span>
+
+            <input
+              className="speed-select"
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.05"
+              value={speechRate}
+              onChange={e =>
+                setSpeechRate(Number(e.target.value))
+              }
+              aria-label="Velocidade da voz"
+            />
+
+            <span className="speed-value">
+              {speechRate.toFixed(2).replace(".", ",")}x
+            </span>
+          </div>
+
+          <div className="composer">
+
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Type in English or Portuguese..."
+              disabled={loading}
+            />
+
+            <button
+              className="language-button"
+              onClick={toggleVoiceLanguage}
+              disabled={loading}
+              title="Alternar idioma do microfone"
+              aria-label="Alternar idioma do microfone"
+            >
+              {voiceLanguage === "pt-BR" ? "🇧🇷 PT" : "🇺🇸 EN"}
+            </button>
+
+            <button
+              className={`mic-button ${listening ? "recording" : ""}`}
+              onClick={startListening}
+              disabled={loading}
+              title="Speak"
+              aria-label="Start voice recognition"
+            >
+              {listening ? "⏹" : "🎤"}
+            </button>
+
+            <button
+              className="send"
+              onClick={send}
+              disabled={!input.trim() || loading}
+              title="Enviar mensagem"
+              aria-label="Enviar mensagem"
+            >
+              ➤
+            </button>
+
+          </div>
+
+          <div className="footer">
+            ProfIA • Your Personal English Teacher 🇺🇸
+          </div>
+
+        </div>
+      </main>
+    </div>
+  );
+            }
