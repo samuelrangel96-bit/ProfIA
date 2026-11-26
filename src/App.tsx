@@ -48,6 +48,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem("profia-speech-rate");
       const rate = saved ? Number(saved) : 0.9;
+
       return Number.isFinite(rate) && rate >= 0.5 && rate <= 1.5
         ? rate
         : 0.9;
@@ -59,19 +60,17 @@ export default function App() {
   const listRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<Recognition | null>(null);
 
-  // Salva a velocidade escolhida
   useEffect(() => {
     try {
       localStorage.setItem("profia-speech-rate", String(speechRate));
     } catch {
-      // Continua funcionando mesmo sem armazenamento disponível
+      // Armazenamento opcional
     }
   }, [speechRate]);
 
-  // Rolagem automática até a última mensagem
+  // Rolagem automática
   useEffect(() => {
     const chat = listRef.current;
-
     if (!chat) return;
 
     const frame = requestAnimationFrame(() => {
@@ -84,6 +83,7 @@ export default function App() {
     return () => cancelAnimationFrame(frame);
   }, [messages, loading]);
 
+  // Limpeza ao sair
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
@@ -94,15 +94,15 @@ export default function App() {
     };
   }, []);
 
-  // Identifica o idioma de cada frase
+  // Identificação do idioma
   function detectLanguage(sentence: string): string {
     const text = sentence.toLowerCase();
 
     const portugueseWords =
-      /\b(o|a|os|as|um|uma|de|do|da|dos|das|que|não|sim|você|vocês|eu|ele|ela|nós|meu|minha|seu|sua|para|com|por|porque|como|está|estão|ser|estar|mas|também|então|muito|mais|isso|essa|esse|uma|obrigado|obrigada|vamos|pode|posso|exemplo|significa|palavra|frase|inglês|português|pronúncia|correto|correta)\b/gi;
+      /\b(o|a|os|as|um|uma|de|do|da|dos|das|que|não|sim|você|vocês|eu|ele|ela|nós|meu|minha|seu|sua|para|com|por|porque|como|está|estão|ser|estar|mas|também|então|muito|mais|isso|essa|esse|obrigado|obrigada|vamos|pode|posso|exemplo|significa|palavra|frase|inglês|português|pronúncia|correto|correta)\b/gi;
 
     const englishWords =
-      /\b(the|is|are|was|were|you|your|we|they|he|she|it|this|that|what|when|where|why|how|with|for|from|have|has|had|do|does|did|can|could|would|should|will|hello|hi|yes|no|please|thank|thanks|because|about|learn|learning|english|teacher|today|example|sentence|word|pronunciation|good|morning|great|let|let's|don't|doesn't|i'm|you're|it's)\b/gi;
+      /\b(the|is|are|was|were|you|your|we|they|he|she|it|this|that|what|when|where|why|how|with|for|from|have|has|had|do|does|did|can|could|would|should|will|hello|hi|yes|no|please|thank|thanks|because|about|learn|learning|english|teacher|today|example|sentence|word|pronunciation|good|morning|great|let|don't|doesn't|i'm|you're|it's)\b/gi;
 
     const portugueseCount =
       (text.match(portugueseWords) || []).length;
@@ -120,7 +120,7 @@ export default function App() {
     return "en-US";
   }
 
-  // Divide o texto em frases para usar o sotaque correto
+  // Reprodução de voz com idioma automático
   function speak(text: string) {
     if (!("speechSynthesis" in window)) {
       alert("Seu navegador não suporta reprodução de voz.");
@@ -136,7 +136,6 @@ export default function App() {
 
     sentences.forEach(sentence => {
       const cleanSentence = sentence.trim();
-
       if (!cleanSentence) return;
 
       const language = detectLanguage(cleanSentence);
@@ -148,13 +147,13 @@ export default function App() {
       utterance.rate = speechRate;
       utterance.pitch = 1;
 
-      const preferredVoice = voices.find(voice =>
-        voice.lang.toLowerCase() === language.toLowerCase()
+      const preferredVoice = voices.find(
+        voice => voice.lang.toLowerCase() === language.toLowerCase()
       );
 
       const alternativeVoice = voices.find(voice =>
         voice.lang.toLowerCase().startsWith(
-          language === "pt-BR" ? "pt" : "en-US"
+          language === "pt-BR" ? "pt" : "en"
         )
       );
 
@@ -166,6 +165,7 @@ export default function App() {
     });
   }
 
+  // Microfone
   function startListening() {
     const speechWindow = window as SpeechWindow;
 
@@ -190,7 +190,7 @@ export default function App() {
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = event => {
       const transcript = event.results[0]?.[0]?.transcript;
 
       if (transcript) {
@@ -218,6 +218,7 @@ export default function App() {
     }
   }
 
+  // Enviar mensagem para o servidor
   async function send() {
     if (!input.trim() || loading) return;
 
@@ -254,17 +255,24 @@ export default function App() {
         );
       }
 
+      if (typeof data.reply !== "string") {
+        throw new Error("O servidor retornou uma resposta inválida.");
+      }
+
       setMessages(m => [
         ...m,
         { role: "assistant", content: data.reply }
       ]);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Erro desconhecido";
+
       setMessages(m => [
         ...m,
         {
           role: "assistant",
-          content: `❌ Erro: ${err.message}`
+          content: `❌ Erro: ${errorMessage}`
         }
       ]);
 
@@ -298,7 +306,7 @@ export default function App() {
         }
 
         .header {
-          height: 76px;
+          min-height: 76px;
           padding: 0 24px;
           display: flex;
           align-items: center;
@@ -411,6 +419,7 @@ export default function App() {
           gap: 20px;
           padding: 10px 4px 25px;
           min-height: 180px;
+          max-height: 60vh;
           scrollbar-width: thin;
           scrollbar-color: #273958 transparent;
           overscroll-behavior: contain;
@@ -639,7 +648,7 @@ export default function App() {
 
         @media(max-width:600px) {
           .header {
-            height: 68px;
+            min-height: 68px;
             padding: 0 15px;
           }
 
@@ -766,7 +775,6 @@ export default function App() {
 
         <div className="composer-area">
 
-          {/* Controle de velocidade da professora */}
           <div className="speed-control">
             <span className="speed-label">
               🔊 Velocidade da voz
@@ -795,7 +803,9 @@ export default function App() {
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && send()}
+              onKeyDown={e => {
+                if (e.key === "Enter") send();
+              }}
               placeholder="Type in English or Portuguese..."
               disabled={loading}
             />
@@ -811,9 +821,4 @@ export default function App() {
             </button>
 
             <button
-              className="language-button"
-              onClick={() =>
-                setVoiceLanguage(current =>
-                  current === "pt-BR" ? "en-US" : "pt-BR"
-                )
-   
+       
