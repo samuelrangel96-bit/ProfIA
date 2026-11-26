@@ -819,6 +819,13 @@ export default function App() {
             >
               {listening ? "⏹" : "🎤"}
             </button>
+          </div>
 
-            <button
-       
+          <div className="footer">
+            ProfIA · Your personal AI English teacher
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
