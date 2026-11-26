@@ -120,6 +120,15 @@ export default function App() {
     return "en-US";
   }
 
+  // Separar frases para reprodução individual
+  function splitSentences(text: string): string[] {
+    return (
+      text.match(/[^.!?\n]+[.!?]?|\n+/g) || [text]
+    )
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+  }
+
   // Reprodução de voz com idioma automático
   function speak(text: string) {
     if (!("speechSynthesis" in window)) {
@@ -129,9 +138,7 @@ export default function App() {
 
     window.speechSynthesis.cancel();
 
-    const sentences =
-      text.match(/[^.!?\n]+[.!?]?|\n+/g) || [text];
-
+    const sentences = splitSentences(text);
     const voices = window.speechSynthesis.getVoices();
 
     sentences.forEach(sentence => {
@@ -148,7 +155,8 @@ export default function App() {
       utterance.pitch = 1;
 
       const preferredVoice = voices.find(
-        voice => voice.lang.toLowerCase() === language.toLowerCase()
+        voice =>
+          voice.lang.toLowerCase() === language.toLowerCase()
       );
 
       const alternativeVoice = voices.find(voice =>
@@ -163,6 +171,18 @@ export default function App() {
 
       window.speechSynthesis.speak(utterance);
     });
+  }
+
+  // Alternar idioma do microfone
+  function toggleVoiceLanguage() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+    }
+
+    setVoiceLanguage(current =>
+      current === "pt-BR" ? "en-US" : "pt-BR"
+    );
   }
 
   // Microfone
@@ -463,6 +483,7 @@ export default function App() {
           line-height: 1.75;
           white-space: pre-wrap;
           overflow-wrap: anywhere;
+          min-width: 0;
         }
 
         .user .bubble {
@@ -612,6 +633,14 @@ export default function App() {
           font-size: 12px;
           font-weight: 800;
           color: #a5b4fc;
+          padding: 0 9px;
+          min-width: 55px;
+          transition: .2s;
+        }
+
+        .language-button:hover {
+          background: #293d60;
+          border-color: #7185b8;
         }
 
         .speak-button {
@@ -628,6 +657,50 @@ export default function App() {
 
         .speak-button:hover {
           background: #293d60;
+        }
+
+        .sentence-list {
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
+          margin-top: 13px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255,255,255,.08);
+        }
+
+        .sentence-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          padding: 9px 10px;
+          border-radius: 11px;
+          background: rgba(30,45,70,.65);
+        }
+
+        .sentence-text {
+          flex: 1;
+          min-width: 0;
+          font-size: 13px;
+          line-height: 1.6;
+          color: #dbeafe;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .sentence-play {
+          flex-shrink: 0;
+          border: 1px solid #40557a;
+          background: #263b5d;
+          color: #a5b4fc;
+          border-radius: 9px;
+          min-width: 36px;
+          height: 34px;
+          cursor: pointer;
+          font-size: 15px;
+        }
+
+        .sentence-play:hover {
+          background: #354e78;
         }
 
         .footer {
@@ -695,9 +768,18 @@ export default function App() {
             height: 39px;
           }
 
+          .language-button {
+            font-size: 11px;
+            padding: 0 5px;
+          }
+
           .send {
             width: 40px;
             height: 40px;
+          }
+
+          .sentence-text {
+            font-size: 12px;
           }
         }
       `}</style>
@@ -746,86 +828,9 @@ export default function App() {
 
                 {m.role === "assistant" &&
                   !m.content.startsWith("❌ Erro:") && (
-                    <button
-                      className="speak-button"
-                      onClick={() => speak(m.content)}
-                      title="Listen to the professor"
-                    >
-                      🔊 Ouvir resposta
-                    </button>
-                  )}
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="message-row">
-              <div className="avatar">🎓</div>
-              <div className="bubble">
-                Professor is thinking...
-                <div className="typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="composer-area">
-
-          <div className="speed-control">
-            <span className="speed-label">
-              🔊 Velocidade da voz
-            </span>
-
-            <input
-              className="speed-select"
-              type="range"
-              min="0.5"
-              max="1.5"
-              step="0.05"
-              value={speechRate}
-              onChange={e =>
-                setSpeechRate(Number(e.target.value))
-              }
-              aria-label="Velocidade da voz"
-            />
-
-            <span className="speed-value">
-              {speechRate.toFixed(2).replace(".", ",")}x
-            </span>
-          </div>
-
-          <div className="composer">
-
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") send();
-              }}
-              placeholder="Type in English or Portuguese..."
-              disabled={loading}
-            />
-
-            <button
-              className={`mic-button ${listening ? "recording" : ""}`}
-              onClick={startListening}
-              disabled={loading}
-              title="Speak"
-              aria-label="Start voice recognition"
-            >
-              {listening ? "⏹" : "🎤"}
-            </button>
-          </div>
-
-          <div className="footer">
-            ProfIA · Your personal AI English teacher
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-}
+                    <>
+                      <button
+                        className="speak-button"
+                        onClick={() => speak(m.content)}
+                        title="Ouvir resposta completa"
+                     
