@@ -6,18 +6,46 @@ type Msg = {
   content: string;
 };
 
+type SpeechRecognitionResult = {
+  0: { transcript: string };
+};
+
+type SpeechRecognitionEvent = {
+  results: SpeechRecognitionResult[];
+};
+
+type Recognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: new () => Recognition;
+  webkitSpeechRecognition?: new () => Recognition;
+};
+
 export default function App() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      content: "Hi! I'm ProfIA 🇺🇸\n\nSeu professor particular de inglês está pronto para ensinar. What would you like to learn today?"
+      content:
+        "Hi! I'm ProfIA 🇺🇸\n\nSeu professor particular de inglês está pronto para ensinar. What would you like to learn today?"
     }
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState("pt-BR");
 
   const listRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<Recognition | null>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({
@@ -25,6 +53,85 @@ export default function App() {
       behavior: "smooth"
     });
   }, [messages, loading]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  function speak(text: string) {
+    if (!("speechSynthesis" in window)) {
+      alert("Seu navegador não suporta reprodução de voz.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    utterance.lang = "en-US";
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function startListening() {
+    const speechWindow = window as SpeechWindow;
+
+    const SpeechRecognition =
+      speechWindow.SpeechRecognition ||
+      speechWindow.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Use o Google Chrome para utilizar o microfone.");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = voiceLanguage;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript;
+
+      if (transcript) {
+        setInput(current =>
+          current ? `${current} ${transcript}` : transcript
+        );
+      }
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  }
 
   async function send() {
     if (!input.trim() || loading) return;
@@ -57,7 +164,7 @@ export default function App() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.details || data.error);
+        throw new Error(data.details || data.error || "Erro na comunicação");
       }
 
       setMessages(m => [
@@ -298,7 +405,7 @@ export default function App() {
         .composer {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           padding: 8px 9px 8px 18px;
           border-radius: 20px;
           background: #111c30;
@@ -351,6 +458,52 @@ export default function App() {
           cursor: not-allowed;
         }
 
+        .mic-button,
+        .language-button {
+          border: 1px solid #334563;
+          background: #1b2940;
+          color: white;
+          border-radius: 13px;
+          height: 43px;
+          min-width: 43px;
+          cursor: pointer;
+          font-size: 17px;
+          flex-shrink: 0;
+        }
+
+        .mic-button:disabled {
+          opacity: .4;
+          cursor: not-allowed;
+        }
+
+        .mic-button.recording {
+          background: #dc2626;
+          border-color: #ef4444;
+          animation: bounce .7s infinite alternate;
+        }
+
+        .language-button {
+          font-size: 12px;
+          font-weight: 800;
+          color: #a5b4fc;
+        }
+
+        .speak-button {
+          display: block;
+          margin-top: 12px;
+          padding: 7px 11px;
+          border: 1px solid #344563;
+          border-radius: 10px;
+          background: #1d2c46;
+          color: #a5b4fc;
+          font-size: 12px;
+          cursor: pointer;
+        }
+
+        .speak-button:hover {
+          background: #293d60;
+        }
+
         .footer {
           text-align: center;
           color: #59677e;
@@ -400,6 +553,26 @@ export default function App() {
             font-size: 10px;
             padding: 7px 9px;
           }
+
+          .composer {
+            gap: 6px;
+            padding-left: 9px;
+          }
+
+          .composer input {
+            font-size: 12px;
+          }
+
+          .mic-button,
+          .language-button {
+            min-width: 37px;
+            height: 39px;
+          }
+
+          .send {
+            width: 40px;
+            height: 40px;
+          }
         }
       `}</style>
 
@@ -408,7 +581,9 @@ export default function App() {
           <div className="logo">P</div>
           <div>
             <div className="brand-name">ProfIA 🇺🇸</div>
-            <div className="brand-sub">Your Personal English Teacher</div>
+            <div className="brand-sub">
+              Your Personal English Teacher
+            </div>
           </div>
         </div>
 
@@ -442,6 +617,17 @@ export default function App() {
 
               <div className="bubble">
                 {m.content}
+
+                {m.role === "assistant" &&
+                  !m.content.startsWith("❌ Erro:") && (
+                    <button
+                      className="speak-button"
+                      onClick={() => speak(m.content)}
+                      title="Listen to the professor"
+                    >
+                      🔊 Ouvir resposta
+                    </button>
+                  )}
               </div>
             </div>
           ))}
@@ -463,6 +649,7 @@ export default function App() {
 
         <div className="composer-area">
           <div className="composer">
+
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -470,6 +657,29 @@ export default function App() {
               placeholder="Type in English or Portuguese..."
               disabled={loading}
             />
+
+            <button
+              className={`mic-button ${listening ? "recording" : ""}`}
+              onClick={startListening}
+              disabled={loading}
+              title="Speak"
+              aria-label="Start voice recognition"
+            >
+              {listening ? "⏹" : "🎤"}
+            </button>
+
+            <button
+              className="language-button"
+              onClick={() =>
+                setVoiceLanguage(current =>
+                  current === "pt-BR" ? "en-US" : "pt-BR"
+                )
+              }
+              disabled={listening}
+              title="Change recognition language"
+            >
+              {voiceLanguage === "pt-BR" ? "PT" : "EN"}
+            </button>
 
             <button
               className="send"
@@ -490,4 +700,4 @@ export default function App() {
     </div>
   );
       }
-      
+        
